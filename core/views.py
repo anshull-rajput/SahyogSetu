@@ -30,7 +30,10 @@ def login_view(request):
         request.session['role'] = role
         request.session['customer_name'] = request.POST.get('customer_name', 'Rahul')
         if role == 'worker':
-            request.session['worker_id'] = int(request.POST.get('worker_id') or Worker.objects.filter(verified=True).first().id)
+            selected = request.POST.get('worker_id')
+            worker = Worker.objects.filter(id=selected, verified=True).first() if selected else Worker.objects.filter(verified=True).first()
+            if worker:
+                request.session['worker_id'] = worker.id
             return redirect('worker_dashboard')
         if role == 'admin':
             return redirect('coop_dashboard')
@@ -47,7 +50,11 @@ def logout_view(request):
 def home(request):
     if request.session.get('role') == 'customer':
         return redirect('customer_dashboard')
-    return render(request, 'home.html', {'services': SERVICES})
+    if request.session.get('role') == 'worker':
+        return redirect('worker_dashboard')
+    if request.session.get('role') == 'admin':
+        return redirect('coop_dashboard')
+    return redirect('login')
 
 
 @role_required('customer')
@@ -56,11 +63,13 @@ def customer_dashboard(request):
 
 
 def distance_score(worker_area, customer_area):
-    if worker_area.lower().strip() == customer_area.lower().strip():
+    worker_area, customer_area = worker_area.lower().strip(), customer_area.lower().strip()
+    if worker_area == customer_area:
         return 15, 'Nearby'
-    close = {('vijay nagar', 'scheme no. 54'), ('scheme no. 54', 'vijay nagar'), ('palasia', 'vijay nagar'), ('vijay nagar', 'palasia'), ('ra u', 'rajendra nagar')}
-    pair = (worker_area.lower().strip(), customer_area.lower().strip())
-    return (11, 'Short distance') if pair in close else (6, 'Farther away')
+    close = {('vijay nagar', 'scheme no. 54'), ('scheme no. 54', 'vijay nagar'), ('palasia', 'vijay nagar'), ('vijay nagar', 'palasia'), ('ra u', 'rajendra nagar'), ('rau', 'rajendra nagar')}
+    if (worker_area, customer_area) in close:
+        return 11, 'Short distance'
+    return 6, 'Farther away'
 
 
 def match_score(worker, area):
@@ -90,11 +99,7 @@ def search(request):
     time = request.GET.get('time', '')
     description = request.GET.get('description', '')
     workers = Worker.objects.filter(verified=True, availability=True, service__iexact=service)
-    ranked = []
-    for worker in workers:
-        score = match_score(worker, area)
-        ranked.append((worker, score, recommendation_reason(worker, area)))
-    ranked.sort(key=lambda item: item[1], reverse=True)
+    ranked = sorted([(w, match_score(w, area), recommendation_reason(w, area)) for w in workers], key=lambda item: item[1], reverse=True)
     return render(request, 'search.html', {'workers': ranked, 'service': service, 'area': area, 'date': date, 'time': time, 'description': description, 'areas': AREAS})
 
 
@@ -102,16 +107,7 @@ def search(request):
 def book(request, worker_id):
     worker = get_object_or_404(Worker, id=worker_id, verified=True)
     if request.method == 'POST':
-        Booking.objects.create(
-            customer_name=request.session.get('customer_name', 'Rahul'),
-            service=worker.service,
-            area=request.POST.get('area', worker.area),
-            date=request.POST.get('date', ''),
-            time=request.POST.get('time', ''),
-            description=request.POST.get('description', ''),
-            estimated_cost=SERVICE_COSTS.get(worker.service, 450),
-            worker=worker,
-        )
+        Booking.objects.create(customer_name=request.session.get('customer_name', 'Rahul'), service=worker.service, area=request.POST.get('area', worker.area), date=request.POST.get('date', ''), time=request.POST.get('time', ''), description=request.POST.get('description', ''), estimated_cost=SERVICE_COSTS.get(worker.service, 450), worker=worker)
         messages.success(request, f'Booking request sent to {worker.name}.')
         return redirect('customer_bookings')
     return render(request, 'book.html', {'worker': worker, 'areas': AREAS, 'cost': SERVICE_COSTS.get(worker.service, 450)})
@@ -153,7 +149,7 @@ def rate_booking(request, booking_id):
 @role_required('worker')
 def worker_dashboard(request):
     worker = get_object_or_404(Worker, id=request.session.get('worker_id'))
-    bookings = worker.bookings.select_related('worker').order_by('-created_at')
+    bookings = worker.bookings.order_by('-created_at')
     completed = bookings.filter(status='completed')
     earnings = sum(b.estimated_cost for b in completed)
     return render(request, 'worker.html', {'worker': worker, 'bookings': bookings, 'earnings': earnings, 'completed_count': completed.count()})
@@ -165,7 +161,8 @@ def update_booking(request, booking_id, action):
     booking = get_object_or_404(Booking, id=booking_id, worker=worker)
     if request.method == 'POST':
         new_status = {'accept': 'accepted', 'reject': 'rejected', 'progress': 'progress', 'complete': 'completed'}.get(action)
-        if new_status and ((booking.status == 'pending' and action in ['accept', 'reject']) or (booking.status == 'accepted' and action == 'progress') or (booking.status == 'progress' and action == 'complete')):
+        allowed = (booking.status == 'pending' and action in ['accept', 'reject']) or (booking.status == 'accepted' and action == 'progress') or (booking.status == 'progress' and action == 'complete')
+        if new_status and allowed:
             booking.status = new_status
             booking.save(update_fields=['status'])
             if new_status == 'completed':
@@ -179,13 +176,7 @@ def update_booking(request, booking_id, action):
 def coop_dashboard(request):
     workers = Worker.objects.all().order_by('-verified', 'name')
     bookings = Booking.objects.select_related('worker').order_by('-created_at')
-    stats = {
-        'total_workers': workers.count(),
-        'verified_workers': workers.filter(verified=True).count(),
-        'pending_workers': workers.filter(verified=False).count(),
-        'active': bookings.filter(status__in=['pending', 'accepted', 'progress']).count(),
-        'completed': bookings.filter(status='completed').count(),
-    }
+    stats = {'total_workers': workers.count(), 'verified_workers': workers.filter(verified=True).count(), 'pending_workers': workers.filter(verified=False).count(), 'active': bookings.filter(status__in=['pending', 'accepted', 'progress']).count(), 'completed': bookings.filter(status='completed').count()}
     service_stats = list(bookings.values('service').annotate(total=Count('id')).order_by('-total'))
     return render(request, 'admin_dashboard.html', {'workers': workers, 'bookings': bookings, 'stats': stats, 'service_stats': service_stats})
 
@@ -200,7 +191,8 @@ def verify_worker(request, worker_id, action):
     return redirect('coop_dashboard')
 
 
-@role_required('admin')
 def worker_profile(request, worker_id):
+    if request.session.get('role') not in ['customer', 'admin']:
+        return redirect('login')
     worker = get_object_or_404(Worker, id=worker_id)
     return render(request, 'worker_profile.html', {'worker': worker})

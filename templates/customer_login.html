@@ -1,0 +1,22 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="auth-shell">
+  <div class="auth-card">
+    <div class="auth-icon">⌂</div>
+    <span class="eyebrow">Customer Account</span>
+    <h1>Customer Login</h1>
+    <p class="muted">Sign in to find and book verified local service workers.</p>
+    {% if error %}<div class="error-box">{{ error }}</div>{% endif %}
+    <form method="post" class="auth-form">
+      {% csrf_token %}
+      <label>Username</label>
+      <input type="text" name="username" placeholder="Enter username" autocomplete="username" required>
+      <label>Password</label>
+      <input type="password" name="password" placeholder="Enter password" autocomplete="current-password" required>
+      <button type="submit">Login as Customer</button>
+    </form>
+    <div class="demo-box"><strong>Demo account</strong><br>Username: <code>customer</code><br>Password: <code>customer123</code></div>
+    <a class="back-link" href="{% url 'login' %}">← Choose another account</a>
+  </div>
+</div>
+{% endblock %}

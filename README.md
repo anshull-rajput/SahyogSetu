@@ -1,18 +1,23 @@
 # 🤝 SahyogSetu
 
-**Cooperative Gig Services Platform for Household & Community Services**  
-SIH 2026 — Problem Statement **SIH26089**
+**Cooperative Gig Services Platform for Household & Community Services**
 
-SahyogSetu connects households with **verified Labour Cooperative members** and uses a simple, explainable fair-matching score so work is not concentrated only among the highest-rated workers.
+SahyogSetu connects households with **verified cooperative members** and uses a simple, explainable fair-matching score so service opportunities are not concentrated only among the highest-rated workers.
 
-## MVP flow
-Customer selects service → enters area/date/time → workers are ranked → customer books → worker accepts/rejects → job completed → customer rates → cooperative dashboard updates.
+## Core flow
+Customer selects service → enters location/date/time → eligible workers are ranked → customer books → worker accepts/rejects → service is completed → customer pays and rates → cooperative dashboard reflects activity.
+
+## Roles
+- **Customer:** search services, compare verified members, book, track status, simulate payment and rate.
+- **Worker:** receive requests, accept/reject, start/complete jobs, view earnings and cooperative welfare information.
+- **Cooperative Admin:** verify members, monitor bookings, review worker records and view service-demand analytics.
 
 ## Tech stack
-- Frontend: HTML, CSS, JavaScript-ready Django templates
+- Frontend: HTML, CSS, JavaScript with Django templates
 - Backend: Python + Django
 - Database: SQLite
-- Admin analytics: Django dashboard
+- Static files: WhiteNoise
+- Hosting: compatible with Render web services
 
 ## Run locally
 ```bash
@@ -24,17 +29,13 @@ python manage.py migrate
 python manage.py seed_demo
 python manage.py runserver
 ```
-Open `http://127.0.0.1:8000/`.
+Open `http://127.0.0.1:8000/` and choose a demo role.
 
-### Demo pages
-- `/` — Customer service search
-- `/search/` — Fair worker matching
-- `/customer/` — Booking tracker + rating
-- `/worker/` — Worker requests and job status
-- `/cooperative/` — Cooperative member & activity dashboard
-- `/admin/` — Django admin
+## Demo data
+The seed command creates 15 cooperative workers across multiple locations, including verified and pending members, plus bookings in pending, confirmed, completed and rejected states.
 
 ## Matching logic
-The MVP keeps the algorithm transparent: **skill match 40 + availability 20 + location 15 + rating 15 + workload fairness 10**. Lower recent workload improves the fairness component.
+**Skill 40 + Availability 20 + Location 15 + Rating 15 + Workload Fairness 10 = 100.** Lower recent workload improves the fairness component. Only verified and available workers matching the requested service are recommended.
 
-> This is a one-day SIH MVP, intentionally kept simple and explainable. Production deployment would add authentication, payments, notifications, stronger location services, audit logs and security hardening.
+## Deployment
+The repository includes `render.yaml`, a Gunicorn start command and WhiteNoise static-file configuration. SQLite keeps the prototype simple; a persistent production database can be introduced later if required.

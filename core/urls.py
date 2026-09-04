@@ -4,6 +4,9 @@ from . import views
 urlpatterns = [
     path('', views.home, name='home'),
     path('login/', views.login_view, name='login'),
+    path('login/customer/', lambda request: views.role_login(request, 'customer'), name='customer_login'),
+    path('login/worker/', lambda request: views.role_login(request, 'worker'), name='worker_login'),
+    path('login/admin/', lambda request: views.role_login(request, 'admin'), name='admin_login'),
     path('logout/', views.logout_view, name='logout'),
     path('customer/', views.customer_dashboard, name='customer_dashboard'),
     path('search/', views.search, name='search'),

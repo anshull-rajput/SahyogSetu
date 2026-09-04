@@ -3,6 +3,7 @@ from django.db import models
 
 class Worker(models.Model):
     name = models.CharField(max_length=100)
+    login_username = models.CharField(max_length=50, unique=True, default='worker')
     service = models.CharField(max_length=50)
     skills = models.TextField(default='', blank=True)
     area = models.CharField(max_length=100)

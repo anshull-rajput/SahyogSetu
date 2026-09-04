@@ -2,6 +2,7 @@ from functools import wraps
 from random import randint
 
 from django.contrib import messages
+from django.contrib.auth import authenticate
 from django.db.models import Avg, Count
 from django.shortcuts import get_object_or_404, redirect, render
 
@@ -9,7 +10,6 @@ from .models import Booking, Worker
 
 SERVICES = ['Plumbing', 'Electrical', 'Cleaning', 'Carpentry', 'Painting', 'Gardening', 'Caregiving', 'Driving', 'Technician']
 SERVICE_COSTS = {'Plumbing': 450, 'Electrical': 500, 'Cleaning': 350, 'Carpentry': 650, 'Painting': 700, 'Gardening': 400, 'Caregiving': 600, 'Driving': 550, 'Technician': 550}
-DEMO_CUSTOMERS = ['Rahul', 'Priya', 'Arjun']
 AREAS = ['Vijay Nagar', 'Palasia', 'Rau', 'Rajendra Nagar', 'Bhanwarkuan', 'Scheme No. 54']
 
 
@@ -25,21 +25,47 @@ def role_required(role):
 
 
 def login_view(request):
+    if request.session.get('role'):
+        return home(request)
+    return render(request, 'login.html')
+
+
+def role_login(request, role):
+    config = {
+        'customer': ('Customer Login', 'customer_login.html'),
+        'worker': ('Worker Login', 'worker_login.html'),
+        'admin': ('Cooperative Admin Login', 'admin_login.html'),
+    }
+    if role not in config:
+        return redirect('login')
+    error = ''
     if request.method == 'POST':
-        role = request.POST.get('role', 'customer')
-        request.session['role'] = role
-        request.session['customer_name'] = request.POST.get('customer_name', 'Rahul')
-        if role == 'worker':
-            selected = request.POST.get('worker_id')
-            worker = Worker.objects.filter(id=selected, verified=True).first() if selected else Worker.objects.filter(verified=True).first()
-            if worker:
+        username = request.POST.get('username', '').strip()
+        password = request.POST.get('password', '')
+        user = authenticate(request, username=username, password=password)
+        if user is None:
+            error = 'Invalid username or password.'
+        elif role == 'admin' and not user.is_staff:
+            error = 'This account does not have admin access.'
+        elif role == 'worker':
+            worker = Worker.objects.filter(login_username=username, verified=True).first()
+            if not worker:
+                error = 'Worker account not found or not verified.'
+            else:
+                request.session['role'] = 'worker'
                 request.session['worker_id'] = worker.id
-            return redirect('worker_dashboard')
-        if role == 'admin':
+                request.session['display_name'] = worker.name
+                return redirect('worker_dashboard')
+        elif role == 'customer':
+            request.session['role'] = 'customer'
+            request.session['customer_name'] = user.get_full_name() or username
+            request.session['display_name'] = user.get_full_name() or username
+            return redirect('customer_dashboard')
+        else:
+            request.session['role'] = 'admin'
+            request.session['display_name'] = user.get_full_name() or username
             return redirect('coop_dashboard')
-        return redirect('customer_dashboard')
-    workers = Worker.objects.filter(verified=True).order_by('name')
-    return render(request, 'login.html', {'workers': workers, 'customers': DEMO_CUSTOMERS})
+    return render(request, config[role][1], {'error': error})
 
 
 def logout_view(request):
@@ -48,11 +74,12 @@ def logout_view(request):
 
 
 def home(request):
-    if request.session.get('role') == 'customer':
+    role = request.session.get('role')
+    if role == 'customer':
         return redirect('customer_dashboard')
-    if request.session.get('role') == 'worker':
+    if role == 'worker':
         return redirect('worker_dashboard')
-    if request.session.get('role') == 'admin':
+    if role == 'admin':
         return redirect('coop_dashboard')
     return redirect('login')
 
@@ -66,7 +93,7 @@ def distance_score(worker_area, customer_area):
     worker_area, customer_area = worker_area.lower().strip(), customer_area.lower().strip()
     if worker_area == customer_area:
         return 15, 'Nearby'
-    close = {('vijay nagar', 'scheme no. 54'), ('scheme no. 54', 'vijay nagar'), ('palasia', 'vijay nagar'), ('vijay nagar', 'palasia'), ('ra u', 'rajendra nagar'), ('rau', 'rajendra nagar')}
+    close = {('vijay nagar', 'scheme no. 54'), ('scheme no. 54', 'vijay nagar'), ('palasia', 'vijay nagar'), ('vijay nagar', 'palasia'), ('rau', 'rajendra nagar'), ('rajendra nagar', 'rau')}
     if (worker_area, customer_area) in close:
         return 11, 'Short distance'
     return 6, 'Farther away'
@@ -107,7 +134,7 @@ def search(request):
 def book(request, worker_id):
     worker = get_object_or_404(Worker, id=worker_id, verified=True)
     if request.method == 'POST':
-        Booking.objects.create(customer_name=request.session.get('customer_name', 'Rahul'), service=worker.service, area=request.POST.get('area', worker.area), date=request.POST.get('date', ''), time=request.POST.get('time', ''), description=request.POST.get('description', ''), estimated_cost=SERVICE_COSTS.get(worker.service, 450), worker=worker)
+        Booking.objects.create(customer_name=request.session.get('customer_name', 'Customer'), service=worker.service, area=request.POST.get('area', worker.area), date=request.POST.get('date', ''), time=request.POST.get('time', ''), description=request.POST.get('description', ''), estimated_cost=SERVICE_COSTS.get(worker.service, 450), worker=worker)
         messages.success(request, f'Booking request sent to {worker.name}.')
         return redirect('customer_bookings')
     return render(request, 'book.html', {'worker': worker, 'areas': AREAS, 'cost': SERVICE_COSTS.get(worker.service, 450)})
@@ -115,7 +142,7 @@ def book(request, worker_id):
 
 @role_required('customer')
 def customer_bookings(request):
-    customer = request.session.get('customer_name', 'Rahul')
+    customer = request.session.get('customer_name', 'Customer')
     bookings = Booking.objects.filter(customer_name=customer).select_related('worker').order_by('-created_at')
     return render(request, 'customer.html', {'bookings': bookings, 'customer': customer})
 

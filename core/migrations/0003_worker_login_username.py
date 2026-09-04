@@ -11,6 +11,7 @@ def fill_usernames(apps, schema_editor):
 class Migration(migrations.Migration):
     dependencies = [('core', '0002_prototype_fields')]
     operations = [
-        migrations.AddField('worker', 'login_username', models.CharField(default='worker', max_length=50, unique=True)),
+        migrations.AddField('worker', 'login_username', models.CharField(max_length=50, null=True, blank=True)),
         migrations.RunPython(fill_usernames, migrations.RunPython.noop),
+        migrations.AlterField('worker', 'login_username', models.CharField(default='worker', max_length=50, unique=True)),
     ]

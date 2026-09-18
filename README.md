@@ -96,11 +96,25 @@ Cooperative dashboard reflects activity
 
 ## 📸 Application Preview
 
-### Application Screenshot
+The following screenshots highlight the main role-based workflows of SahyogSetu.
 
-![SahyogSetu application preview](Image/IMG_20260918_170317.jpg)
+### 🏠 Role Selection / Home
+![SahyogSetu role selection and home](Image/IMG-20260918-WA0026.jpg)
 
-The preview shows the implemented SahyogSetu application and its role-based service workflow.
+### 🛡️ Cooperative Admin Dashboard
+![SahyogSetu cooperative admin dashboard](Image/IMG-20260918-WA0027.jpg)
+
+### 👤 Customer Dashboard
+![SahyogSetu customer dashboard](Image/IMG-20260918-WA0028.jpg)
+
+### ⚖️ Smart Worker Matching
+![SahyogSetu smart worker matching](Image/IMG-20260918-WA0030.jpg)
+
+### 📋 Booking Request
+![SahyogSetu booking request](Image/IMG-20260918-WA0031.jpg)
+
+### 👷 Worker Dashboard
+![SahyogSetu worker dashboard](Image/IMG_20260918_170317.jpg)
 
 ## 🛠️ Tech Stack
 

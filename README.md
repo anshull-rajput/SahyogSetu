@@ -96,7 +96,11 @@ Cooperative dashboard reflects activity
 
 ## 📸 Application Preview
 
-Screenshots of the customer, worker, admin, booking, and matching workflows will be added here.
+### Application Screenshot
+
+![SahyogSetu application preview](Image/IMG_20260918_170317.jpg)
+
+The preview shows the implemented SahyogSetu application and its role-based service workflow.
 
 ## 🛠️ Tech Stack
 
